@@ -2,17 +2,8 @@
 <ScannerSettings>
     <ScannerIDNumber>0123456789012345</ScannerIDNumber>
     <GT06ClientSettings>
-        <Hostname>demo.traccar.org</Hostname>
+        <Hostname>192.168.178.62</Hostname>
         <Port>5023</Port>
-        <UpdateDelay>10</UpdateDelay>
+        <UpdateDelay>5</UpdateDelay>
     </GT06ClientSettings>
-    <GPSSettings>
-        <Port>/dev/ttyUSB0</Port>
-        <Baud>4800</Baud>
-    </GPSSettings>
-    <DisplaySettings>
-        <MapsURL>https://c.tile.openstreetmap.org</MapsURL>
-        <Zoom>18</Zoom>
-        <Magnification>1</Magnification>
-    </DisplaySettings>
 </ScannerSettings>

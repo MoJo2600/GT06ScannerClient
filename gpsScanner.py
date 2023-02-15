@@ -1,196 +1,98 @@
 import math
-import re
-import time
 import threading
-
-import serial
+from gps import *
+from datetime import datetime
+import logging
+logger = logging.getLogger(__name__)
 
 
 class GPSScanner():
-
-    serialPort = None
-    serialBaud = None
-    gpsSerial = None
-
     locationHash = None
     runLocationThread = None
+    gpsd = None
 
-    def __init__(self, serialPortIn=None, serialBaudIn=None):
-        if serialPortIn:
-            self.serialPort = serialPortIn
-        if serialBaudIn:
-            self.serialBaud = serialBaudIn
+    # The locationHash is only valid if at least one TPV and one SKY message has been received
+    TPV_message_received = False
+    SKY_message_received = False
 
-    def resetConnection(self):
-        try:
-            self.gpsSerial.close()
-            self.gpsSerial = serial.Serial(
-                self.serialPort,
-                self.serialBaud
-            )
-        except:
-            pass
-
-    def getSerialBaud(self):
-        return self.serialBaud
-
-    def setSerialBaud(self, serialBaudIn):
-        self.serialBaud = serialBaudIn
-
-    def getSerialPort(self):
-        return self.serialPort
-
-    def setSerialPort(self, serialPortIn):
-        self.serialPort = serialPortIn
-
-    def getLocationHash(self):
-        return self.locationHash
+    def __init__(self):
+        pass
 
     def runLocate(self):
-
+        logger.debug('Starting location thread')
         def doThreadLoop():
             self.locationHash = self.doDecodeGPS()
             while self.runLocationThread:
-                self.locationHash.update(self.doDecodeGPS())
+                report = self.doDecodeGPS()
+                self.locationHash.update(report)
 
         self.locationHash = {}
         self.runLocationThread = True
+        self.gpsd = gps(mode=WATCH_ENABLE)
 
-        self.gpsSerial = serial.Serial(self.serialPort, self.serialBaud)
         threading.Thread(target=doThreadLoop).start()
 
     def stopLocate(self):
+        logger.debug('Stopping location thread')
         self.runLocationThread = False
-        if self.gpsSerial is not None:
-            self.gpsSerial.close()
 
     def doDecodeGPS(self):
-
-        def doGPSCheckSum(stringIn):
-            checkSum = 0
-            for charIndex in stringIn:
-                checkSum ^= ord(charIndex)
-            return str(hex(checkSum)).upper()[2:]
-
-        returnHash = {}
-
-        match = None
+        report = None
         while True:
+            report = self.gpsd.next()
+            logger.debug(report)
 
-            serialLine = b""
-            try:
-                serialLine = self.gpsSerial.readline()
-            except:
-                self.resetConnection()
+            returnHash = {}
+            if report['class'] == 'TPV':
+                returnHash = self.decodeTPV(report)
+                self.TPV_message_received = True
+            if report['class'] == 'SKY':
+                returnHash = self.decodeSKY(report)
+                self.SKY_message_received = True
+            return returnHash
 
-            match = re.match(
-                b'^\$(GPGGA|GPRMC|GPGLL|GPGSV),(.*)\*(.*)',
-                serialLine
-            )
-            if match:
-                 checkStr = "{},{}".format(
-                     match.group(1).decode("utf-8"),
-                     match.group(2).decode("utf-8")
-                 )
-                 funcSum = doGPSCheckSum(checkStr)
-                 gpsSum = str(match.group(3).decode("utf-8"))[:2]
-                 if funcSum == gpsSum:
-                     break
-        if match.group(1) == b'GPRMC':
-            returnHash = self.decodeGPRMC(match.group(2).decode('utf-8'))
-        elif match.group(1) == b'GPGGA':
-            returnHash = self.decodeGPGGA(match.group(2).decode('utf-8'))
-        elif match.group(1) == b'GPGLL':
-            returnHash = self.decodeGPGLL(match.group(2).decode('utf-8'))
-        elif match.group(1) == b'GPGSV':
-            returnHash = self.decodeGPGSV(match.group(2).decode('utf-8'))
-
-        return returnHash
-
-    def decodeGPGLL(self, stringIn):
-
+    def decodeTPV(self, report):
         returnHash = {}
-        gpsArray = stringIn.split(',')
 
         try:
+            latitude = getattr(report, 'lat', 0.0)
+            returnHash['latitude'] = float(abs(math.floor(latitude * 1000000) / 1000000))
+            returnHash['latitudeDir'] = 'N' if latitude >= 0 else 'S'
 
-            returnHash['latitude'] = ((float(gpsArray[0]) - math.floor(float(gpsArray[0]) / 100) * 100) / 60) + math.floor(float(gpsArray[0]) / 100)
-            returnHash['latitudeDir'] = gpsArray[1]
+            longitude = getattr(report, 'lon', 0.0)
+            returnHash['longitude'] = float(math.floor(longitude * 1000000) / 1000000)
+            returnHash['longitudeDir'] = 'E' if longitude >= 0 else 'W'
 
-            returnHash['longitude'] = ((float(gpsArray[2]) - math.floor(float(gpsArray[2]) / 100) * 100) / 60) + math.floor(float(gpsArray[2]) / 100)
-            returnHash['longitudeDir'] = gpsArray[3] 
+            timestamp = datetime.strptime(getattr(report, 'time', '2000-01-01T00:00:00.000Z'), "%Y-%m-%dT%H:%M:%S.%fZ") 
 
-            returnHash['time'] = str(gpsArray[4][0:2]) + ':' + str(gpsArray[4][2:4]) + ':' + str(gpsArray[4][4:6])
-            returnHash['timestamp'] = gpsArray[4]
+            speed = getattr(report, 'speed', 0.0)
+            returnHash['groundSpeedKnots'] = float(speed * 1.943844)
+            returnHash['course'] = float(getattr(report, 'track', 0.0))
 
-        except IndexError:
-            pass
-        except ValueError:
-            pass
+            returnHash['date'] = timestamp.strftime("%y-%m-%d")
+            returnHash['time'] = timestamp.strftime("%H:%M:%S")
+            returnHash['timestamp'] = timestamp.strftime("%H%M%S.00")
+
+        except:
+            logger.exception('Could not decode TPV report')
+            raise
 
         return returnHash
 
-    def decodeGPGGA(self, stringIn):
-
+    def decodeSKY(self, report):
         returnHash = {}
-        gpsArray = stringIn.split(',')
 
         try:
-
-            returnHash['latitude'] = ((float(gpsArray[1]) - math.floor(float(gpsArray[1]) / 100) * 100) / 60) + math.floor(float(gpsArray[1]) / 100)
-            returnHash['latitudeDir'] = gpsArray[2]
-
-            returnHash['longitude'] = ((float(gpsArray[3]) - math.floor(float(gpsArray[3]) / 100) * 100) / 60) + math.floor(float(gpsArray[3]) / 100)
-            returnHash['longitudeDir'] = gpsArray[4]
-
-            returnHash['altitude'] = float(gpsArray[8])
-            returnHash['altitudeUnits'] = gpsArray[9]
-
-            returnHash['time'] = str(gpsArray[0][0:2]) + ':' + str(gpsArray[0][2:4]) + ':' + str(gpsArray[0][4:6])
-            returnHash['timestamp'] = gpsArray[0]
-
-        except IndexError:
-            pass
-        except ValueError:
-            pass
+            returnHash["satellitesInView"] = getattr(report, 'nSat', 0)
+        except:
+            logger.exception('Could not decode SKY report')
+            raise
 
         return returnHash
 
-    def decodeGPRMC(self, stringIn):
+    def isReady(self):
+        return self.TPV_message_received and self.SKY_message_received
 
-        returnHash = {}
-        gpsArray = stringIn.split(',')
 
-        try:
-
-            returnHash['latitude'] = ((float(gpsArray[2]) - math.floor(float(gpsArray[2]) / 100) * 100) / 60) + math.floor(float(gpsArray[2]) / 100)
-            returnHash['latitudeDir'] = gpsArray[3]
-
-            returnHash['longitude'] = ((float(gpsArray[4]) - math.floor(float(gpsArray[4]) / 100) * 100) / 60) + math.floor(float(gpsArray[4]) / 100)
-            returnHash['longitudeDir'] = gpsArray[5]
-
-            returnHash['groundSpeedKnots'] = float(gpsArray[6])
-            returnHash['course'] = float(gpsArray[7])
-
-            returnHash['date'] = str(int(gpsArray[8][4:6])) + '-' + str(gpsArray[8][2:4]) + '-' + str(gpsArray[8][0:2])
-            returnHash['time'] = str(gpsArray[0][0:2]) + ':' + str(gpsArray[0][2:4]) + ':' + str(gpsArray[0][4:6])
-            returnHash['timestamp'] = gpsArray[0]
-
-        except IndexError:
-            pass
-        except ValueError:
-            pass
-
-        return returnHash
-
-    def decodeGPGSV(self, stringIn):
-
-        returnHash = {}
-        gpsArray = stringIn.split(',')
-
-        try:
-            returnHash["satellitesInView"] = gpsArray[2]
-        except IndexError:
-            pass
-
-        return returnHash
+    def getLocationHash(self):
+        return self.locationHash

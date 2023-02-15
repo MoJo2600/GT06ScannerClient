@@ -50,39 +50,3 @@ class ConfigReader():
         except:
             pass
         return returnValue
-
-    def getGPSDevicePort(self):
-        return self.getTextByXPath(".//GPSSettings/Port")
-
-    def getGPSDeviceBaud(self):
-        returnValue = None
-        try:
-            returnValue = int(
-                self.getTextByXPath(".//GPSSettings/Baud")
-            )
-        except:
-            pass
-        return returnValue
-
-    def getMapsURL(self):
-        return self.getTextByXPath(".//DisplaySettings/MapsURL")
-
-    def getMapsZoom(self):
-        returnValue = None
-        try:
-            returnValue = int(
-                self.getTextByXPath(".//DisplaySettings/Zoom")
-            )
-        except:
-            pass
-        return returnValue
-
-    def getMapsMagnification(self):
-        returnValue = 1
-        try:
-            returnValue = int(
-                self.getTextByXPath(".//DisplaySettings/Magnification")
-            )
-        except:
-            pass
-        return returnValue

@@ -1,6 +1,10 @@
-# GT06ScannerClient
+# GT06ScannerClient for GPSD
 
-The GT06ScannerClient was written to be run on a mobile computer to update a system compatible with the GT06 protocol.  Specifically, this client targets the open source Traccar platform and was developed based on this codebase.
+The GT06ScannerClient was written to be run on a mobile computer to update a system compatible with the GT06 protocol. Specifically, this client targets the open source Traccar platform and was developed based on this codebase.
+
+This fork was created to utilize [GPSD](https://gpsd.gitlab.io/gpsd/) as the lone provider for GPS information. The original code is locking the GPS device and so only this program can use the information. By utilizing GPSD, multiple services on
+your device can use GPS information. I want to use this script alongside an [OpenautoPro](https://bluewavestudio.io/shop/openauto-pro-car-head-unit-solution/) installation which uses itself GPSD for GPS data. I additionally removed the GUI part of this script as it should only run as
+a daemon script to push information to traccar. This also removed the pygame requirements.
 
 ## Prerequisites
 
@@ -13,19 +17,16 @@ The GT06ScannerClient relies on the following prerequisites:
 * for the server, you will need to know the
   * hostname/ip address of the host server
   * port for GT06 communication
-* A GPS receiver attached to the computer running the script
-* for the GPS receiver, you will need to know the
-  * port running the GPS receiver, this will differ between Windows and *NIX machines
-  * baud speed that the GPS receiver is running
+* A GPS receiver attached to the computer and configured to be used by GPSD
 
 ## Installation
 
 * In the installation directory run
 
 ```bash
-git clone https://github.com/lmandres/GT06ScannerClient.git
+cd /opt
+git clone https://github.com/mojo2600/GT06ScannerClient.git
 cd GT06ScannerClient
-git pull
 ```
 
 * You can create a virtual environment to run the application (This step is optional).
@@ -56,10 +57,6 @@ notepad config.xml
   * /ScannerSettings/GT06ClientSettings/Hostname - Hostname or IP address of the GPS tracking server
   * /ScannerSettings/GT06ClientSettings/Port - The port number for the service running the GT06 protocol on the host server
   * /ScannerSettings/GT06ClientSettings/UpdateDelay - The delay (in seconds) to wait between GPS scanner updates to the server
-  * /ScannerSettings/GPSSettings/Port - The port to the device on the machine.  This will differ between *NIX and Windows computers.
-    * On *NIX, this will usually be a path to the port in the /dev directory
-    * On Windows, this will probably be a COM port
-  * /ScannerSettings/GPSSettings/Baud - The port speed of the GPS device
 
 ## Running the application
 
@@ -89,4 +86,25 @@ python runClient.py
 
 ```bash
 deactivate
+```
+
+## Setup Systemd daemon
+
+* You have to install the code for this in the /opt directory or you'll have to update the path in the service script
+* Copy the daemon script to the systemd folder
+* Reload the configuration
+* Enable the service
+
+```bash
+cp systemd/gpstracker.service /etc/systemd/system
+systemctl daemon-reload
+systemctl enable gpstracker
+systemctl start gpstracker
+```
+
+* You can check the status of the daemon
+
+```bash
+systemctl status gpstracker
+journalctl -fu gpstracker
 ```

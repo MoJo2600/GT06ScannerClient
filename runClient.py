@@ -1,7 +1,7 @@
 import argparse
 
 import GT06ScannerClient
-
+import logging
 
 if __name__ == "__main__":
 
@@ -37,45 +37,22 @@ if __name__ == "__main__":
         help="Delay (in seconds) between GPS tracker server updates."
     )
     parser.add_argument(
-        "-g",
-        "--gps_port",
-        help="Communication port or path for GPS tracker module."
-    )
-    parser.add_argument(
-        "-b",
-        "--gps_baud",
-        type=int,
-        help="Baud speed for communication with GPS tracker module."
-    )
-    parser.add_argument(
-        "-m",
-        "--maps_url",
-        help="URL for map tile server images."
-    )
-    parser.add_argument(
-        "-x",
-        "--magnification",
-        help="Magnification for tile server images."
-    )
-    parser.add_argument(
-        "-z",
-        "--zoom",
-        help="Zoom for tile server images."
+        "-v",
+        "--verbose",
+        action='store_true',
+        help="Print verbose status messages."
     )
     args = parser.parse_args()
-    print(args)
     
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO )
+    logging.debug(args)
+
     scanner = GT06ScannerClient.GT06ScannerClient(
         configFile=args.config,
         scannerIDIn=args.id,
         serverAddressIn=args.server_address,
         serverPortIn=args.server_port,
         updateDelayIn=args.update_delay,
-        gpsPortIn=args.gps_port,
-        gpsBaudIn=args.gps_baud,
-        mapsURLIn=args.maps_url,
-        mapsZoomIn=args.zoom,
-        mapsMagnificationIn=args.magnification
     )
     try:
         scanner.connectDevices()

@@ -4,6 +4,7 @@ import logging, sys
 
 import crc_itu
 
+logger = logging.getLogger(__name__)
 
 class GT06Client():
 
@@ -44,7 +45,7 @@ class GT06Client():
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((self.serverAddress, self.serverPort))
         except OSError as e:
-            logging.exception(f"Cannot connect to {self.serverAddress}:{self.serverPort}")
+            logger.exception(f"Cannot connect to {self.serverAddress}:{self.serverPort}")
             sys.exit(255)
         self.socket.settimeout(self.timeOut)
 
