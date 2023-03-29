@@ -4,8 +4,8 @@ Description=GT06 Tracker
 [Service]
 User=pi
 Environment=PYTHONUNBUFFERED=1
-WorkingDirectory=/opt/GT06ScannerClient
-ExecStart=/opt/GT06ScannerClient/venv/bin/python3 ./runClient.py
+WorkingDirectory=/opt/gpstracker
+ExecStart=/opt/gpstracker/venv/bin/python3 ./runClient.py
 Restart=always
 RestartSec=5
 
