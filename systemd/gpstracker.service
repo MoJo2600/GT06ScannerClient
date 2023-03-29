@@ -1,7 +1,5 @@
 [Unit]
 Description=GT06 Tracker
-StartLimitBurst=3
-StartLimitIntervalSec=60
 
 [Service]
 User=pi
