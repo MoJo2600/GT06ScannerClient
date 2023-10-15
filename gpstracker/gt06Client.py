@@ -15,7 +15,7 @@ class GT06Client():
     infoSerial = 0
     socket = None
 
-    def __init__(self, serverAddress=None, serverPort=None, timeOut=60):
+    def __init__(self, serverAddress=None, serverPort=None, timeOut=30):
         if serverAddress:
             self.serverAddress = serverAddress
         if serverPort:
@@ -43,11 +43,11 @@ class GT06Client():
     def connect(self):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.settimeout(self.timeOut)
             self.socket.connect((self.serverAddress, self.serverPort))
         except OSError as e:
             logger.exception(f"Cannot connect to {self.serverAddress}:{self.serverPort}")
             sys.exit(255)
-        self.socket.settimeout(self.timeOut)
 
     def disconnect(self):
         self.socket.close()
